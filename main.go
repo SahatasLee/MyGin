@@ -21,5 +21,5 @@ func main() {
 	api := route.Group("/api")
 	routes.SetUserRoutes(api, db)
 	routes.SetBookRoutes(api, db)
-	route.Run(":8000") // set port 8080 -> 8000
+	route.Run(":8000") // set port defualt 8080 -> 8000
 }
