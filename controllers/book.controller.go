@@ -19,6 +19,9 @@ func (db *DBController) CreateBook(c *gin.Context) {
 	if tx.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot create book"})
 		return
+	} else {
+		c.JSON(http.StatusCreated, gin.H{"results": book})
+		return
 	}
 }
 
