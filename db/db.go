@@ -20,8 +20,10 @@ func (l SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql st
 
 	fmt.Print(sql + "\n ================================= \n")
 }
+
 func DatabaseInit() *gorm.DB {
-	dsn := "host=localhost user=postgres password=admin dbname=myDatabase port=5432"
+	dsn := "host=localhost user=postgres password=admin dbname=mygin port=5432 TimeZone=Asia/Bangkok"
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: &SqlLogger{},
 		DryRun: false,
@@ -31,7 +33,10 @@ func DatabaseInit() *gorm.DB {
 		fmt.Println(err)
 	}
 
-	db.AutoMigrate(models.User{})
+	db.AutoMigrate(
+		models.User{},
+		models.Book{},
+	)
 
 	return db
 }
