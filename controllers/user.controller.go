@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -72,6 +73,17 @@ func (db *DBController) Register(c *gin.Context) {
 }
 
 func (db *DBController) Login(c *gin.Context) {
+	// get a tracer
+	tracer := otel.Tracer("gin-Login")
+
+	// start a new span
+	// this span not need, otelgin will auto generate
+	// ctx, handlerspan := tracer.Start(c.Request.Context(), "Post /login handler")
+	// defer handlerspan.End()
+
+	// start a new span for bind object
+	_, bindspan := tracer.Start(c.Request.Context(), "Binding Object json")
+
 	var body struct {
 		Email    string
 		Password string
@@ -82,11 +94,13 @@ func (db *DBController) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bind fail"})
 		return
 	}
+	bindspan.End()
 
+	ctx, lookupuser := tracer.Start(c.Request.Context(), "DB look up user")
 	// Look up user
-
 	var user models.User
-	tx := db.Database.First(&user, "email = ?", body.Email)
+	tx := db.Database.WithContext(ctx).First(&user, "email = ?", body.Email)
+	lookupuser.End()
 
 	if tx.Error != nil || user.ID == 0 {
 		fmt.Println("Look up user Error", tx.Error)
@@ -94,11 +108,16 @@ func (db *DBController) Login(c *gin.Context) {
 		return
 	}
 
+	_, vpSpan := tracer.Start(c.Request.Context(), "Verify password")
 	if !VerifyPassword(user.Password, body.Password) {
 		fmt.Println("VerifyPassword user Error")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		vpSpan.End()
 		return
 	}
+	vpSpan.End()
+
+	_, jwtSpan := tracer.Start(c.Request.Context(), "create jwt")
 
 	// JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -107,17 +126,22 @@ func (db *DBController) Login(c *gin.Context) {
 	})
 
 	tokenString, err := token.SignedString([]byte("secret"))
+	jwtSpan.End()
 	if err != nil {
 		fmt.Println("Generate Token Error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
 		return
 	}
 
+	_, resSpan := tracer.Start(c.Request.Context(), "Response")
+
 	// Response
 	// c.JSON(http.StatusOK, gin.H{"token": tokenString})
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("Authorization", tokenString, 3600*24, "", "", false, true) // 1 days
 	c.JSON(http.StatusOK, gin.H{})
+
+	resSpan.End()
 }
 
 // Get User By Id

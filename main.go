@@ -107,7 +107,16 @@ func main() {
 	route.Use(otelgin.Middleware("test-gin"))
 
 	route.GET("/", func(c *gin.Context) {
+		// get a tracer
+		tracer := otel.Tracer("gin-helloworld")
+
+		// start new span
+		_, span := tracer.Start(c.Request.Context(), "Default route c.json")
+
 		c.JSON(http.StatusOK, gin.H{"message": "Hello World"})
+
+		// end span
+		span.End()
 	})
 
 	api := route.Group("/api")
